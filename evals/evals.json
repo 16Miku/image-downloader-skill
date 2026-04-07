@@ -1,0 +1,23 @@
+{
+  "skill_name": "bing-keyword-image-downloader",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "帮我从 Bing 按关键词下载 10 张猫咪图片到本地，我用 uv 管理 Python。",
+      "expected_output": "调用当前目录中的 bing_image_downloader.py，设置合适的 pages 参数，下载图片到 downloads/cat/ 或等价目录，并汇报成功数量。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "我想批量抓取 Bing 上关于风景的 50 张公开图片，尽量提高下载总数量，不用改成并发。",
+      "expected_output": "识别这是 Bing 关键词批量下载任务，优先通过增大 pages 参数收集更多候选链接，再执行脚本并汇报结果。",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "请帮我从 Bing 搜索 dog 的图片，目标 100 张，并告诉我如果没下载满通常是什么原因。",
+      "expected_output": "执行 100 张下载任务，使用较大的 pages 参数，结束后说明成功数量、保存目录以及第三方源站 403/SSL/超时等常见失败原因。",
+      "files": []
+    }
+  ]
+}
