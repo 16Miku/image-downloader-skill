@@ -200,6 +200,329 @@ Expected:
 
 - [ ] **Step 5: 提交这一小步**
 
+```bash
+git -C "D:/0/7/scrape/bing-keyword-image-downloader" add image_downloader/__init__.py image_downloader/models.py image_downloader/sources/__init__.py image_downloader/sources/base.py tests/test_models_and_sources.py
+git -C "D:/0/7/scrape/bing-keyword-image-downloader" commit -m "feat: 建立统一模型与来源接口"
+```
+
+### Task 2: 重构 BingSource 并迁移抓取逻辑
+
+**Files:**
+- Create: `D:/0/7/scrape/bing-keyword-image-downloader/image_downloader/sources/bing.py`
+- Modify: `D:/0/7/scrape/bing-keyword-image-downloader/scripts/bing_image_downloader.py`
+- Modify: `D:/0/7/scrape/bing-keyword-image-downloader/tests/test_models_and_sources.py`
+- Modify: `D:/0/7/scrape/bing-keyword-image-downloader/tests/test_bing_image_downloader.py`
+- Test: `D:/0/7/scrape/bing-keyword-image-downloader/tests/test_models_and_sources.py`
+- Test: `D:/0/7/scrape/bing-keyword-image-downloader/tests/test_bing_image_downloader.py`
+
+- [ ] **Step 1: 先补一个失败测试，锁定 BingSource.collect 会返回统一 ImageCandidate 列表**
+
+在 `D:/0/7/scrape/bing-keyword-image-downloader/tests/test_models_and_sources.py` 中：
+- 保留现有 `import unittest`、`from unittest import mock`
+- 增加 `from image_downloader.sources.bing import BingSource`
+- 在 `TestModelsAndSources` 类内追加如下测试方法：
+
+```python
+    def test_bing_source_collect_returns_image_candidates(self):
+        response = mock.Mock()
+        response.raise_for_status.return_value = None
+        response.text = '''
+        <a class="iusc" m='{"murl":"https://img.example.com/1.jpg","purl":"https://example.com/1","turl":"https://img.example.com/1-thumb.jpg","t":"cat 1","w":800,"h":600}'></a>
+        <a class="iusc" m='{"murl":"https://img.example.com/2.png","purl":"https://example.com/2","turl":"https://img.example.com/2-thumb.png","t":"cat 2","w":640,"h":480}'></a>
+        '''
+
+        with mock.patch("image_downloader.sources.bing.requests.get", return_value=response):
+            results = BingSource().collect("cat", limit=5, pages=1)
+
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0].source, "bing")
+        self.assertEqual(results[0].keyword, "cat")
+        self.assertEqual(results[0].image_url, "https://img.example.com/1.jpg")
+        self.assertEqual(results[0].page_url, "https://example.com/1")
+        self.assertEqual(results[0].thumbnail_url, "https://img.example.com/1-thumb.jpg")
+        self.assertEqual(results[0].title, "cat 1")
+        self.assertEqual(results[0].width, 800)
+        self.assertEqual(results[0].height, 600)
+        self.assertEqual(results[0].content_type, None)
+        self.assertEqual(results[0].source_rank, 1)
+        self.assertEqual(results[0].metadata["bing_page"], 1)
+```
+
+- [ ] **Step 2: 再补一个失败测试，锁定脚本层 extract_image_urls 兼容入口继续返回纯 URL 列表**
+
+在 `D:/0/7/scrape/bing-keyword-image-downloader/tests/test_bing_image_downloader.py` 中的 `TestBingImageDownloader` 类内追加：
+
+```python
+    def test_extract_image_urls_uses_bing_source_compatible_parser(self):
+        html = '''
+        <a class="iusc" m='{"murl":"https://img.example.com/a.jpg"}'></a>
+        <a class="iusc" m='{"murl":"https://img.example.com/b.png"}'></a>
+        <a class="iusc" m='{"murl":"https://img.example.com/a.jpg"}'></a>
+        '''
+
+        urls = extract_image_urls(html)
+
+        self.assertEqual(urls, [
+            "https://img.example.com/a.jpg",
+            "https://img.example.com/b.png",
+        ])
+```
+
+- [ ] **Step 3: 再补一个失败测试，锁定 collect_image_urls 会通过 BingSource 保持旧兼容行为**
+
+在 `D:/0/7/scrape/bing-keyword-image-downloader/tests/test_bing_image_downloader.py` 中：
+- 在现有导入区新增 `from image_downloader.models import ImageCandidate`
+- 在 `TestBingImageDownloader` 类内追加如下测试方法：
+
+```python
+    @mock.patch("bing_image_downloader.BingSource")
+    def test_collect_image_urls_uses_bing_source_and_returns_plain_urls(self, mock_bing_source):
+        mock_bing_source.return_value.collect.return_value = [
+            ImageCandidate(
+                source="bing",
+                keyword="cat",
+                image_url="https://img.example.com/1.jpg",
+                page_url=None,
+                thumbnail_url=None,
+                title=None,
+                width=None,
+                height=None,
+                content_type=None,
+                source_rank=1,
+                metadata={},
+            ),
+            ImageCandidate(
+                source="bing",
+                keyword="cat",
+                image_url="https://img.example.com/2.jpg",
+                page_url=None,
+                thumbnail_url=None,
+                title=None,
+                width=None,
+                height=None,
+                content_type=None,
+                source_rank=2,
+                metadata={},
+            ),
+        ]
+
+        urls = collect_image_urls("cat", pages=2, target_count=2)
+
+        self.assertEqual(urls, [
+            "https://img.example.com/1.jpg",
+            "https://img.example.com/2.jpg",
+        ])
+        mock_bing_source.return_value.collect.assert_called_once_with("cat", limit=2, pages=2)
+```
+
+- [ ] **Step 4: 运行测试，确认在 BingSource 尚未迁移前失败**
+
+Run:
+```bash
+uv run python -m unittest tests/test_models_and_sources.py tests/test_bing_image_downloader.py -v
+```
+
+Expected:
+- FAIL
+- 失败原因应指向 `image_downloader.sources.bing` 尚未实现、`BingSource` 尚未可导入，或脚本层尚未接入 `BingSource`
+- 不应是断言值错误；如果出现导入缺失，请先补齐本任务步骤里明确要求的 import 再重跑
+
+- [ ] **Step 5: 写最小实现，把 Bing 提取与分页采集逻辑迁移到来源模块**
+
+新建 `D:/0/7/scrape/bing-keyword-image-downloader/image_downloader/sources/bing.py`：
+
+```python
+import html
+import json
+import re
+from urllib.parse import quote
+
+import requests
+
+from image_downloader.models import ImageCandidate
+from image_downloader.sources.base import BaseSource
+
+
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    )
+}
+
+
+def _extract_image_metadata(html_text):
+    patterns = [
+        r"m='(\{.*?\})'",
+        r'm="(\{.*?\})"',
+    ]
+
+    seen = set()
+    items = []
+
+    for pattern in patterns:
+        matches = re.findall(pattern, html_text)
+        for raw in matches:
+            try:
+                data = json.loads(html.unescape(raw))
+            except json.JSONDecodeError:
+                continue
+
+            image_url = data.get("murl")
+            if image_url and image_url not in seen:
+                seen.add(image_url)
+                items.append(data)
+
+    return items
+
+
+def extract_image_urls(html_text):
+    return [item["murl"] for item in _extract_image_metadata(html_text) if item.get("murl")]
+
+
+class BingSource(BaseSource):
+    name = "bing"
+
+    def collect(self, keyword, limit, pages):
+        candidates = []
+        seen = set()
+
+        for page in range(max(1, pages)):
+            if limit is not None and len(candidates) >= limit:
+                break
+
+            first = page * 35 + 1
+            url = f"https://www.bing.com/images/search?q={quote(keyword)}&form=HDRSC3&first={first}"
+            response = requests.get(url, headers=HEADERS, timeout=15)
+            response.raise_for_status()
+
+            for data in _extract_image_metadata(response.text):
+                image_url = data.get("murl")
+                if not image_url or image_url in seen:
+                    continue
+
+                seen.add(image_url)
+                candidates.append(
+                    ImageCandidate(
+                        source="bing",
+                        keyword=keyword,
+                        image_url=image_url,
+                        page_url=data.get("purl"),
+                        thumbnail_url=data.get("turl"),
+                        title=data.get("t"),
+                        width=data.get("w"),
+                        height=data.get("h"),
+                        content_type=None,
+                        source_rank=len(candidates) + 1,
+                        metadata={"bing_page": page + 1},
+                    )
+                )
+
+                if limit is not None and len(candidates) >= limit:
+                    break
+
+        return candidates
+```
+
+- [ ] **Step 6: 在 CLI 脚本中接入 BingSource，同时保留旧接口兼容**
+
+将 `D:/0/7/scrape/bing-keyword-image-downloader/scripts/bing_image_downloader.py` 中的 Bing 解析与采集入口改写为如下关键结构：
+
+```python
+import argparse
+import mimetypes
+import os
+from pathlib import Path
+from urllib.parse import urlparse
+
+import requests
+
+from image_downloader.sources.bing import BingSource, HEADERS, extract_image_urls
+
+
+def guess_extension(url, content_type=None):
+    if content_type:
+        extension = mimetypes.guess_extension(content_type.split(";")[0].strip())
+        if extension == ".jpe":
+            return ".jpg"
+        if extension:
+            return extension
+
+    path = urlparse(url).path.lower()
+    for ext in (".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"):
+        if path.endswith(ext):
+            return ".jpg" if ext == ".jpeg" else ext
+    return ".jpg"
+
+
+def download_images(urls, output_dir, limit=10, start_index=1):
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    saved_files = []
+
+    for offset, url in enumerate(urls[:limit]):
+        response = requests.get(url, headers=HEADERS, stream=True, timeout=15)
+        response.raise_for_status()
+        extension = guess_extension(url, response.headers.get("Content-Type"))
+        filename = f"{start_index + offset:03d}{extension}"
+        file_path = os.path.join(output_dir, filename)
+
+        with open(file_path, "wb") as file_obj:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    file_obj.write(chunk)
+
+        saved_files.append(file_path)
+
+    return saved_files
+
+
+def collect_image_urls(keyword, pages=1, target_count=None):
+    source = BingSource()
+    limit = target_count if target_count is not None else pages * 35
+    candidates = source.collect(keyword, limit=limit, pages=pages)
+    return [candidate.image_url for candidate in candidates]
+```
+
+保持这一任务的边界：
+- 删除脚本内原有的 Bing HTML 解析实现，统一改为从 `image_downloader.sources.bing` 导入 `extract_image_urls`
+- `extract_image_urls()` 继续可从脚本导入
+- `collect_image_urls()` 继续只走 Bing
+- 保持 `guess_extension()`、`download_images()`、`search_bing_images()`、`main()` 的既有职责
+- 不在这一任务中加入多来源调度、去重、历史索引或报告逻辑
+- 不在这一任务中修改 CLI 参数定义
+
+- [ ] **Step 7: 运行测试，确认 BingSource 迁移后通过且旧兼容测试仍通过**
+
+Run:
+```bash
+uv run python -m unittest tests/test_models_and_sources.py tests/test_bing_image_downloader.py -v
+```
+
+Expected:
+- PASS
+- `test_bing_source_collect_returns_image_candidates` 通过
+- `test_extract_image_urls_uses_bing_source_compatible_parser` 通过
+- `test_collect_image_urls_uses_bing_source_and_returns_plain_urls` 通过
+- 旧的 Bing 相关兼容性测试继续通过
+
+- [ ] **Step 8: 提交这一小步（使用中文 Conventional Commit + 详细正文）**
+
+```bash
+git -C "D:/0/7/scrape/bing-keyword-image-downloader" add image_downloader/sources/bing.py scripts/bing_image_downloader.py tests/test_models_and_sources.py tests/test_bing_image_downloader.py
+git -C "D:/0/7/scrape/bing-keyword-image-downloader" commit -m "$(cat <<'EOF'
+feat: 抽离 BingSource 抓取逻辑
+
+将原本散落在单体脚本中的 Bing 图片解析与分页抓取逻辑迁移到独立来源模块，
+建立可复用的 BingSource，实现统一的 ImageCandidate 输出。
+
+同时保留脚本层 extract_image_urls() 与 collect_image_urls() 的兼容入口，
+确保现有 Bing 相关测试与既有下载流程在不引入多来源调度的前提下继续工作。
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+EOF
+)"
+```
 
 ### Task 3: 加入 DemoSource 与基础多来源调度
 
