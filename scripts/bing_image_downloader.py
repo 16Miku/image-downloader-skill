@@ -7,6 +7,13 @@ from urllib.parse import urlparse
 import requests
 
 from image_downloader.sources.bing import BingSource, HEADERS, extract_image_urls
+from image_downloader.sources.demo import DemoSource
+
+
+SOURCE_REGISTRY = {
+    "bing": BingSource,
+    "demo": DemoSource,
+}
 
 
 def guess_extension(url, content_type=None):
@@ -43,6 +50,17 @@ def download_images(urls, output_dir, limit=10, start_index=1):
         saved_files.append(file_path)
 
     return saved_files
+
+
+def build_sources(source_names):
+    return [SOURCE_REGISTRY[name]() for name in source_names]
+
+
+def collect_candidates_from_sources(keyword, limit, pages, sources):
+    candidates = []
+    for source in sources:
+        candidates.extend(source.collect(keyword, limit=limit, pages=pages))
+    return candidates
 
 
 def collect_image_urls(keyword, pages=1, target_count=None):

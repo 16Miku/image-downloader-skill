@@ -4,6 +4,7 @@ from unittest import mock
 from image_downloader.models import ImageCandidate
 from image_downloader.sources.base import BaseSource
 from image_downloader.sources.bing import BingSource
+from image_downloader.sources.demo import DemoSource
 
 
 class DummySource(BaseSource):
@@ -101,6 +102,16 @@ class TestModelsAndSources(unittest.TestCase):
                 "https://img.example.com/b.png",
             ],
         )
+
+    def test_demo_source_collect_respects_limit(self):
+        source = DemoSource()
+        results = source.collect("cat", limit=2, pages=3)
+
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0].source, "demo")
+        self.assertEqual(results[0].keyword, "cat")
+        self.assertEqual(results[0].image_url, "https://demo.example.com/cat/1.jpg")
+        self.assertEqual(results[1].source_rank, 2)
 
 
 if __name__ == "__main__":
