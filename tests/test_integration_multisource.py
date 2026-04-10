@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest import mock
 
 from image_downloader.models import ImageCandidate
+from image_downloader.reporting import build_run_report
 from image_downloader.storage import record_download, should_skip_candidate
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
@@ -99,6 +100,27 @@ class TestMultiSourceIntegration(unittest.TestCase):
             )
 
             self.assertTrue(should_skip_candidate(duplicate, output_dir))
+
+    def test_build_run_report_includes_source_counts_and_output_dir(self):
+        report = build_run_report(
+            keyword="cat",
+            requested_limit=5,
+            collected_count=8,
+            deduped_count=5,
+            downloaded_count=3,
+            skipped_count=2,
+            output_dir="downloads/cat",
+            source_counts={"bing": 4, "demo": 4},
+        )
+
+        self.assertIn("关键词: cat", report)
+        self.assertIn("候选总数: 8", report)
+        self.assertIn("去重后数量: 5", report)
+        self.assertIn("实际成功下载: 3", report)
+        self.assertIn("跳过重复: 2", report)
+        self.assertIn("- bing: 4", report)
+        self.assertIn("- demo: 4", report)
+        self.assertIn("保存目录: downloads/cat", report)
 
 
 if __name__ == "__main__":

@@ -1,11 +1,13 @@
 import argparse
 import mimetypes
 import os
+from collections import Counter
 from pathlib import Path
 from urllib.parse import urlparse
 
 import requests
 
+from image_downloader.reporting import build_run_report
 from image_downloader.storage import record_download, should_skip_candidate
 from image_downloader.sources.bing import BingSource, HEADERS, extract_image_urls
 from image_downloader.sources.demo import DemoSource
@@ -64,6 +66,21 @@ def collect_candidates_from_sources(keyword, limit, pages, sources):
     return candidates
 
 
+def dedupe_candidates(candidates, limit):
+    seen_urls = set()
+    deduped = []
+
+    for candidate in candidates:
+        if candidate.image_url in seen_urls:
+            continue
+        seen_urls.add(candidate.image_url)
+        deduped.append(candidate)
+        if len(deduped) >= limit:
+            break
+
+    return deduped
+
+
 def download_candidate(candidate, output_dir, index):
     if should_skip_candidate(candidate, output_dir):
         return None
@@ -95,26 +112,41 @@ def main():
     args = parser.parse_args()
 
     output_dir = os.path.join("downloads", args.keyword)
-    image_urls = collect_image_urls(args.keyword, pages=args.pages, target_count=args.limit * 3)
+    sources = build_sources(["bing", "demo"])
+    collected_candidates = collect_candidates_from_sources(
+        keyword=args.keyword,
+        limit=args.limit,
+        pages=args.pages,
+        sources=sources,
+    )
 
-    if not image_urls:
+    if not collected_candidates:
         print("没有提取到图片链接，请更换关键词后重试。")
         return
 
-    success = 0
-    for url in image_urls:
-        if success >= args.limit:
-            break
-        try:
-            saved = download_images([url], output_dir, limit=1, start_index=success + 1)
-            if saved:
-                success += 1
-                print(f"下载成功: {saved[0]}")
-        except Exception as exc:
-            print(f"下载失败: {url} -> {exc}")
+    deduped_candidates = dedupe_candidates(collected_candidates, limit=args.limit)
+    downloaded_count = 0
 
-    print(f"共收集到 {len(image_urls)} 个候选链接。")
-    print(f"完成，共成功下载 {success} 张图片。")
+    for index, candidate in enumerate(deduped_candidates, start=1):
+        try:
+            saved_path = download_candidate(candidate, output_dir, index)
+            if saved_path:
+                downloaded_count += 1
+        except Exception as exc:
+            print(f"下载失败: {candidate.image_url} -> {exc}")
+
+    source_counts = dict(Counter(candidate.source for candidate in collected_candidates))
+    report = build_run_report(
+        keyword=args.keyword,
+        requested_limit=args.limit,
+        collected_count=len(collected_candidates),
+        deduped_count=len(deduped_candidates),
+        downloaded_count=downloaded_count,
+        skipped_count=len(deduped_candidates) - downloaded_count,
+        output_dir=output_dir,
+        source_counts=source_counts,
+    )
+    print(report)
 
 
 if __name__ == "__main__":

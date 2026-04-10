@@ -14,6 +14,7 @@ from bing_image_downloader import (
     guess_extension,
     download_images,
     collect_image_urls,
+    main,
 )
 
 
@@ -190,6 +191,99 @@ class TestBingImageDownloader(unittest.TestCase):
             ], tmpdir, limit=1, start_index=3)
             self.assertEqual(len(saved), 1)
             self.assertTrue(saved[0].endswith("003.jpg"))
+    @mock.patch("bing_image_downloader.print")
+    @mock.patch("bing_image_downloader.build_run_report")
+    @mock.patch("bing_image_downloader.download_candidate")
+    @mock.patch("bing_image_downloader.dedupe_candidates")
+    @mock.patch("bing_image_downloader.collect_candidates_from_sources")
+    @mock.patch("bing_image_downloader.build_sources")
+    @mock.patch("bing_image_downloader.argparse.ArgumentParser.parse_args")
+    def test_main_runs_multisource_pipeline_and_prints_report(
+        self,
+        mock_parse_args,
+        mock_build_sources,
+        mock_collect_candidates,
+        mock_dedupe_candidates,
+        mock_download_candidate,
+        mock_build_run_report,
+        mock_print,
+    ):
+        mock_parse_args.return_value = mock.Mock(keyword="cat", limit=2, pages=3)
+        sources = [mock.Mock(name="bing-source"), mock.Mock(name="demo-source")]
+        mock_build_sources.return_value = sources
+
+        collected = [
+            ImageCandidate(
+                source="bing",
+                keyword="cat",
+                image_url="https://img.example.com/1.jpg",
+                page_url=None,
+                thumbnail_url=None,
+                title=None,
+                width=None,
+                height=None,
+                content_type=None,
+                source_rank=1,
+                metadata={},
+            ),
+            ImageCandidate(
+                source="demo",
+                keyword="cat",
+                image_url="https://demo.example.com/2.jpg",
+                page_url=None,
+                thumbnail_url=None,
+                title=None,
+                width=None,
+                height=None,
+                content_type=None,
+                source_rank=1,
+                metadata={},
+            ),
+            ImageCandidate(
+                source="demo",
+                keyword="cat",
+                image_url="https://demo.example.com/3.jpg",
+                page_url=None,
+                thumbnail_url=None,
+                title=None,
+                width=None,
+                height=None,
+                content_type=None,
+                source_rank=2,
+                metadata={},
+            ),
+        ]
+        deduped = collected[:2]
+        mock_collect_candidates.return_value = collected
+        mock_dedupe_candidates.return_value = deduped
+        mock_download_candidate.side_effect = ["downloads/cat/001.jpg", None]
+        mock_build_run_report.return_value = "运行完成摘要"
+
+        main()
+
+        mock_build_sources.assert_called_once_with(["bing", "demo"])
+        mock_collect_candidates.assert_called_once_with(
+            keyword="cat",
+            limit=2,
+            pages=3,
+            sources=sources,
+        )
+        mock_dedupe_candidates.assert_called_once_with(collected, limit=2)
+        mock_download_candidate.assert_has_calls([
+            mock.call(deduped[0], os.path.join("downloads", "cat"), 1),
+            mock.call(deduped[1], os.path.join("downloads", "cat"), 2),
+        ])
+        mock_build_run_report.assert_called_once_with(
+            keyword="cat",
+            requested_limit=2,
+            collected_count=3,
+            deduped_count=2,
+            downloaded_count=1,
+            skipped_count=1,
+            output_dir=os.path.join("downloads", "cat"),
+            source_counts={"bing": 1, "demo": 2},
+        )
+        mock_print.assert_called_once_with("运行完成摘要")
 
 
 if __name__ == "__main__":
