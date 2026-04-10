@@ -189,4 +189,4 @@ uv run --with requests python "scripts/bing_image_downloader.py" "cat" --limit 1
 
 ## License
 
-当前仓库未单独声明许可证。如需开源发布，建议后续补充 `LICENSE` 文件。
+本仓库采用 [MIT License](./LICENSE)。
