@@ -152,7 +152,7 @@ downloads/cat/
 ### 单元测试
 
 ```bash
-uv run --with requests python -m unittest tests/test_bing_image_downloader.py tests/test_integration_multisource.py
+uv run --with requests python -m unittest tests.test_bing_image_downloader tests.test_models_and_sources tests.test_storage tests.test_integration_multisource -v
 ```
 
 ### 冒烟测试

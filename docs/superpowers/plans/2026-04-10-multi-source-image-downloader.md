@@ -1219,7 +1219,7 @@ def main():
 把测试命令补成：
 
 ```bash
-uv run --with requests python -m unittest tests/test_bing_image_downloader.py tests/test_models_and_sources.py tests/test_pipeline.py tests/test_storage.py tests/test_integration_multisource.py -v
+uv run --with requests python -m unittest tests.test_bing_image_downloader tests.test_models_and_sources tests.test_storage tests.test_integration_multisource -v
 ```
 
 - [ ] **Step 7: 更新 SKILL.md，让 skill 说明与多来源能力一致**
