@@ -2,6 +2,11 @@
 
 一个基于 Python 的多来源关键词图片下载项目，同时也整理成了一个可供其他 agent 复用的 Claude skill。
 
+## 项目链接
+
+- GitHub 仓库：https://github.com/16Miku/image-downloader-skill
+- ClawHub 页面：https://clawhub.ai/16miku/bing-keyword-image-downloader
+
 它当前的核心能力是：
 - 按关键词从多个来源收集图片候选（当前支持 Bing 和 DemoSource）
 - 通过分页收集更大的候选池

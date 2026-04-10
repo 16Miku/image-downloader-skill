@@ -4,9 +4,11 @@
 
 **Goal:** 将当前 Bing 专用图片下载脚本重构为一个支持统一来源接口、标准去重、历史索引和基础多来源调度的关键词图片下载器。
 
-**Architecture:** 保留单一 CLI 入口，但将实现拆分为统一数据模型、来源模块、去重流水线、下载存储和报告模块。第一阶段只落地 BingSource 与 DemoSource，通过标准去重和历史索引解决重复下载问题，并为后续接入更多真实来源保留清晰边界。
+**Architecture:** 保留单一 CLI 入口，但将实现拆分为统一数据模型、来源模块、下载存储和报告模块。第一阶段只落地 BingSource 与 DemoSource，通过标准去重和历史索引解决重复下载问题，并为后续接入更多真实来源保留清晰边界。
 
 **Tech Stack:** Python 3、requests、argparse、pathlib、hashlib、json、unittest、unittest.mock、uv
+
+**当前状态（2026-04-10）:** 当前根目录实现已经完成多来源 MVP：支持多来源候选收集、历史去重、续写编号与运行摘要。`demo` 来源当前主要用于统一接口与失败容错验证，不作为稳定真实来源承诺；后续重点转向文档、skill、评测与来源扩展，而不是继续补齐基础 MVP 能力。
 
 ---
 
@@ -25,17 +27,13 @@
 - `D:/0/7/scrape/bing-keyword-image-downloader/image_downloader/sources/bing.py`
   - 承载 Bing 抓取逻辑，从旧脚本迁移提取与分页采集能力。
 - `D:/0/7/scrape/bing-keyword-image-downloader/image_downloader/sources/demo.py`
-  - 提供无网络依赖的示例来源，便于测试统一接口与流水线。
-- `D:/0/7/scrape/bing-keyword-image-downloader/image_downloader/pipeline.py`
-  - 承载候选合并、URL 规范化、基础去重与目标截断逻辑。
+  - 提供无网络依赖的示例来源，便于测试统一接口与容错行为。
 - `D:/0/7/scrape/bing-keyword-image-downloader/image_downloader/storage.py`
   - 承载文件保存、内容 hash、索引读写、元数据记录能力。
 - `D:/0/7/scrape/bing-keyword-image-downloader/image_downloader/reporting.py`
   - 负责生成运行结果摘要与统计信息。
 - `D:/0/7/scrape/bing-keyword-image-downloader/tests/test_models_and_sources.py`
   - 覆盖统一模型与来源接口的基础测试。
-- `D:/0/7/scrape/bing-keyword-image-downloader/tests/test_pipeline.py`
-  - 覆盖 URL 去重、规范化 URL 去重和候选截断。
 - `D:/0/7/scrape/bing-keyword-image-downloader/tests/test_storage.py`
   - 覆盖文件 hash、索引写入、历史去重和元数据保存。
 - `D:/0/7/scrape/bing-keyword-image-downloader/tests/test_integration_multisource.py`
@@ -57,7 +55,7 @@
 ### 关键拆分原则
 
 1. `sources/` 只负责发现候选，不负责最终保留决策。
-2. `pipeline.py` 只负责合并、规范化、去重和筛选，不做真实下载。
+2. 候选合并、URL 规范化、基础去重和目标截断已由当前 CLI 与现有模块吸收，不再要求单独落地 `pipeline.py`。
 3. `storage.py` 只负责落盘、计算 hash、索引和元数据，不解析来源页面。
 4. `reporting.py` 只负责统计和输出文本，不修改业务数据。
 5. CLI 入口只负责调度，不在入口内堆叠具体策略。
