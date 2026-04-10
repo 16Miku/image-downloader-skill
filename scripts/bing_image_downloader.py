@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 
 import requests
 
+from image_downloader.storage import record_download, should_skip_candidate
 from image_downloader.sources.bing import BingSource, HEADERS, extract_image_urls
 from image_downloader.sources.demo import DemoSource
 
@@ -61,6 +62,18 @@ def collect_candidates_from_sources(keyword, limit, pages, sources):
     for source in sources:
         candidates.extend(source.collect(keyword, limit=limit, pages=pages))
     return candidates
+
+
+def download_candidate(candidate, output_dir, index):
+    if should_skip_candidate(candidate, output_dir):
+        return None
+
+    saved_files = download_images([candidate.image_url], output_dir, limit=1, start_index=index)
+    if not saved_files:
+        return None
+
+    record_download(candidate, saved_files[0], output_dir)
+    return saved_files[0]
 
 
 def collect_image_urls(keyword, pages=1, target_count=None):
