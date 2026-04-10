@@ -3,6 +3,7 @@
 - 日期：2026-04-10
 - 项目：`bing-keyword-image-downloader`
 - 设计主题：按 MVP 标准审查当前多来源图片下载器，并完成 README / SKILL / 开发文档对齐
+- 执行状态：本设计对应工作已完成；本文档作为设计依据保留，不承担逐步进度勾选职责。实际执行结果见 `docs/superpowers/plans/2026-04-10-mvp-completion-alignment.md`。
 
 ## 1. 目标
 

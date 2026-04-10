@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**执行状态（2026-04-10）:** 本计划对应工作已完成并已提交。下面的勾选项已按本轮实际执行结果回填；设计依据见 `docs/superpowers/specs/2026-04-10-mvp-completion-alignment-design.md`。
+
 **Goal:** 按 MVP 标准验证当前多来源图片下载器，并将 README、SKILL、CLAUDE 与开发计划文档整理到与真实实现一致。
 
 **Architecture:** 先做 fresh 验证，再只修改文档层，避免触碰现有下载逻辑。文档更新分为对外说明（README、SKILL）、仓库内指导（CLAUDE）和开发计划去过时三块，最后再做一次 fresh 验证并用中文提交。
@@ -52,7 +54,7 @@
 - Test: `D:/0/7/scrape/bing-keyword-image-downloader/tests/test_storage.py`
 - Test: `D:/0/7/scrape/bing-keyword-image-downloader/tests/test_integration_multisource.py`
 
-- [ ] **Step 1: 运行完整测试集，确认当前自动化验证通过**
+- [x] **Step 1: 运行完整测试集，确认当前自动化验证通过**
 
 Run:
 ```bash
@@ -64,7 +66,7 @@ Expected:
 - 输出包含 `Ran 23 tests`
 - 输出包含 `OK`
 
-- [ ] **Step 2: 运行一轮 CLI 冒烟验证，确认主流程可运行**
+- [x] **Step 2: 运行一轮 CLI 冒烟验证，确认主流程可运行**
 
 Run:
 ```bash
@@ -77,7 +79,7 @@ Expected:
 - 输出中包含 `保存目录: downloads/mvp-verify-20260410`
 - 如未下载满 5 张，也必须有摘要输出；不可把第三方源站失败误判为脚本崩溃
 
-- [ ] **Step 3: 检查当前工作区状态，确认本轮修改前基线清晰**
+- [x] **Step 3: 检查当前工作区状态，确认本轮修改前基线清晰**
 
 Run:
 ```bash
@@ -95,7 +97,7 @@ Expected:
 **Files:**
 - Modify: `D:/0/7/scrape/bing-keyword-image-downloader/README.md`
 
-- [ ] **Step 1: 写入目录结构修正内容，补齐缺失模块与测试文件**
+- [x] **Step 1: 写入目录结构修正内容，补齐缺失模块与测试文件**
 
 将 README 的目录结构片段调整为：
 
@@ -123,7 +125,7 @@ bing-keyword-image-downloader/
     └── test_integration_multisource.py
 ```
 
-- [ ] **Step 2: 同步 README 的说明文字，确保文件说明与现有结构一致**
+- [x] **Step 2: 同步 README 的说明文字，确保文件说明与现有结构一致**
 
 将 README 的说明列表补齐为：
 
@@ -136,7 +138,7 @@ bing-keyword-image-downloader/
 
 同时保留现有对 `reporting.py`、`storage.py`、`sources/`、`test_integration_multisource.py` 的说明。
 
-- [ ] **Step 3: 在 README 中明确 MVP 边界**
+- [x] **Step 3: 在 README 中明确 MVP 边界**
 
 在“注意事项”段落补充或改写为以下意思的文字：
 
@@ -145,7 +147,7 @@ bing-keyword-image-downloader/
 - 当前稳定可下载来源主要仍依赖 Bing；`demo` 来源主要用于统一接口、候选补位和失败容错验证。
 ```
 
-- [ ] **Step 4: 复读 README，确认没有再引用不存在的测试文件或旧架构描述**
+- [x] **Step 4: 复读 README，确认没有再引用不存在的测试文件或旧架构描述**
 
 检查点：
 - 不再遗漏 `models.py`
@@ -159,7 +161,7 @@ bing-keyword-image-downloader/
 **Files:**
 - Modify: `D:/0/7/scrape/bing-keyword-image-downloader/SKILL.md`
 
-- [ ] **Step 1: 修正依赖文件列表，补齐当前真实测试文件**
+- [x] **Step 1: 修正依赖文件列表，补齐当前真实测试文件**
 
 将 `SKILL.md` 的“依赖文件”段改为：
 
@@ -172,7 +174,7 @@ bing-keyword-image-downloader/
 - 集成测试：`tests/test_integration_multisource.py`
 ```
 
-- [ ] **Step 2: 在 SKILL 中明确当前能力边界，避免夸大多来源能力**
+- [x] **Step 2: 在 SKILL 中明确当前能力边界，避免夸大多来源能力**
 
 将注意事项中的边界整理为：
 
@@ -182,14 +184,14 @@ bing-keyword-image-downloader/
 - 当用户要求避免重复下载时，应明确说明当前流程支持基于历史索引跳过重复候选，并在已有文件基础上续写编号。
 ```
 
-- [ ] **Step 3: 保持命令模板与 README 一致**
+- [x] **Step 3: 保持命令模板与 README 一致**
 
 检查点：
 - `uv run --with requests python "scripts/bing_image_downloader.py" ...` 的命令格式保持一致
 - 页数经验值仍为 10/50/100 对应 3/5/10 页
 - 输出说明仍指向 `downloads/<关键词>/`
 
-- [ ] **Step 4: 复读 SKILL，确认说明与 README 不冲突**
+- [x] **Step 4: 复读 SKILL，确认说明与 README 不冲突**
 
 检查点：
 - 关于来源、失败原因、保存目录、重复跳过的表述一致
@@ -204,7 +206,7 @@ bing-keyword-image-downloader/
 - Modify: `D:/0/7/scrape/bing-keyword-image-downloader/CLAUDE.md`
 - Modify: `D:/0/7/scrape/bing-keyword-image-downloader/docs/superpowers/plans/2026-04-10-multi-source-image-downloader.md`
 
-- [ ] **Step 1: 修正 CLAUDE.md 中“根目录仍是单来源实现”的描述**
+- [x] **Step 1: 修正 CLAUDE.md 中“根目录仍是单来源实现”的描述**
 
 将 `CLAUDE.md` 的“当前仓库状态”改成贴合现实的表述，例如：
 
@@ -216,7 +218,7 @@ bing-keyword-image-downloader/
 - 处理任务时默认以根目录当前实现为准，不再把它描述成“只有 Bing 单来源”的旧版本。
 ```
 
-- [ ] **Step 2: 在 CLAUDE.md 中补充中文提交信息规则**
+- [x] **Step 2: 在 CLAUDE.md 中补充中文提交信息规则**
 
 在合适位置加入：
 
@@ -226,7 +228,7 @@ bing-keyword-image-downloader/
 - 本仓库进行 git 提交时，提交信息使用中文。
 ```
 
-- [ ] **Step 3: 修正 CLAUDE.md 中测试命令与测试结构说明**
+- [x] **Step 3: 修正 CLAUDE.md 中测试命令与测试结构说明**
 
 将测试命令统一为：
 
@@ -236,14 +238,14 @@ uv run --with requests python -m unittest tests.test_bing_image_downloader tests
 
 并在测试结构说明中明确四个测试文件都属于当前根目录实现。
 
-- [ ] **Step 4: 清理开发计划文档中的过时文件映射**
+- [x] **Step 4: 清理开发计划文档中的过时文件映射**
 
 在 `docs/superpowers/plans/2026-04-10-multi-source-image-downloader.md` 中：
 - 删除或改写 `tests/test_pipeline.py` 相关计划条目
 - 删除或改写 `image_downloader/pipeline.py` 作为“必需待建文件”的说法
 - 将这部分职责改写为“已由当前 CLI 和现有模块吸收”或等价说明
 
-- [ ] **Step 5: 在开发计划文档中增加 MVP 完成状态说明**
+- [x] **Step 5: 在开发计划文档中增加 MVP 完成状态说明**
 
 补入以下事实：
 
@@ -253,7 +255,7 @@ uv run --with requests python -m unittest tests.test_bing_image_downloader tests
 - 当前阶段的主要后续工作是文档、skill、评测与后续来源扩展，而不是继续补齐基础 MVP 能力。
 ```
 
-- [ ] **Step 6: 复读两个文档，确认不再互相冲突**
+- [x] **Step 6: 复读两个文档，确认不再互相冲突**
 
 检查点：
 - `CLAUDE.md`、README、SKILL 都承认根目录已是多来源主线
@@ -270,7 +272,7 @@ uv run --with requests python -m unittest tests.test_bing_image_downloader tests
 - Modify: `D:/0/7/scrape/bing-keyword-image-downloader/CLAUDE.md`
 - Modify: `D:/0/7/scrape/bing-keyword-image-downloader/docs/superpowers/plans/2026-04-10-multi-source-image-downloader.md`
 
-- [ ] **Step 1: 查看最终 diff，确认只包含本轮预期文档修改**
+- [x] **Step 1: 查看最终 diff，确认只包含本轮预期文档修改**
 
 Run:
 ```bash
@@ -281,7 +283,7 @@ Expected:
 - diff 只涉及文档与说明修正
 - 不应出现脚本逻辑被意外修改
 
-- [ ] **Step 2: 再次运行完整测试集，作为提交前最终验证**
+- [x] **Step 2: 再次运行完整测试集，作为提交前最终验证**
 
 Run:
 ```bash
@@ -293,7 +295,7 @@ Expected:
 - 输出包含 `Ran 23 tests`
 - 输出包含 `OK`
 
-- [ ] **Step 3: 如需要，再跑一次 CLI 冒烟验证，确认文档更新未影响使用说明**
+- [x] **Step 3: 如需要，再跑一次 CLI 冒烟验证，确认文档更新未影响使用说明**
 
 Run:
 ```bash
@@ -304,7 +306,7 @@ Expected:
 - 命令退出码为 0
 - 输出中包含 `保存目录: downloads/mvp-final-verify-20260410`
 
-- [ ] **Step 4: 提交本轮修改，提交信息使用中文**
+- [x] **Step 4: 提交本轮修改，提交信息使用中文**
 
 Run:
 ```bash
@@ -316,7 +318,7 @@ Expected:
 - commit 成功
 - 提交信息为中文
 
-- [ ] **Step 5: 提交后检查工作区，确认收尾完成**
+- [x] **Step 5: 提交后检查工作区，确认收尾完成**
 
 Run:
 ```bash
