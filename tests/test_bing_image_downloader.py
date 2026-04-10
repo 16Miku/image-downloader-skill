@@ -1,4 +1,5 @@
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -191,6 +192,32 @@ class TestBingImageDownloader(unittest.TestCase):
             ], tmpdir, limit=1, start_index=3)
             self.assertEqual(len(saved), 1)
             self.assertTrue(saved[0].endswith("003.jpg"))
+
+    def test_cli_runs_from_repo_root(self):
+        repo_root = Path(__file__).resolve().parents[1]
+        command = [
+            sys.executable,
+            "scripts/bing_image_downloader.py",
+            "cat",
+            "--limit",
+            "1",
+            "--pages",
+            "1",
+        ]
+
+        with mock.patch.dict(os.environ, {"PYTHONPATH": ""}, clear=False):
+            result = subprocess.run(
+                command,
+                cwd=repo_root,
+                capture_output=True,
+                text=True,
+            )
+
+        self.assertEqual(
+            result.returncode,
+            0,
+            msg=f"stdout:\n{result.stdout}\n\nstderr:\n{result.stderr}",
+        )
     @mock.patch("bing_image_downloader.print")
     @mock.patch("bing_image_downloader.build_run_report")
     @mock.patch("bing_image_downloader.download_candidate")

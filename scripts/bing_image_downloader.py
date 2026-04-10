@@ -1,11 +1,14 @@
 import argparse
 import mimetypes
 import os
+import sys
 from collections import Counter
 from pathlib import Path
 from urllib.parse import urlparse
 
 import requests
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from image_downloader.reporting import build_run_report
 from image_downloader.storage import record_download, should_skip_candidate
