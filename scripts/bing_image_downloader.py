@@ -58,6 +58,41 @@ def download_images(urls, output_dir, limit=10, start_index=1):
     return saved_files
 
 
+def get_next_image_index(output_dir):
+    output_path = Path(output_dir)
+    max_index = 0
+
+    if not output_path.exists():
+        return 1
+
+    for child in output_path.iterdir():
+        if not child.is_file():
+            continue
+        stem = child.stem
+        if stem.isdigit():
+            max_index = max(max_index, int(stem))
+
+    return max_index + 1
+
+
+def download_new_images(candidates, output_dir, limit, start_index):
+    downloaded_count = 0
+    skipped_count = 0
+    next_index = start_index
+
+    for candidate in candidates:
+        if downloaded_count >= limit:
+            break
+        saved_path = download_candidate(candidate, output_dir, next_index)
+        if saved_path:
+            downloaded_count += 1
+            next_index += 1
+        else:
+            skipped_count += 1
+
+    return downloaded_count, skipped_count
+
+
 def build_sources(source_names):
     return [SOURCE_REGISTRY[name]() for name in source_names]
 
@@ -127,15 +162,22 @@ def main():
         print("没有提取到图片链接，请更换关键词后重试。")
         return
 
-    deduped_candidates = dedupe_candidates(collected_candidates, limit=args.limit)
+    unique_candidates = dedupe_candidates(collected_candidates, limit=len(collected_candidates))
+    start_index = get_next_image_index(output_dir)
     downloaded_count = 0
+    skipped_count = 0
 
-    for index, candidate in enumerate(deduped_candidates, start=1):
+    for candidate in unique_candidates:
+        if downloaded_count >= args.limit:
+            break
         try:
-            saved_path = download_candidate(candidate, output_dir, index)
+            saved_path = download_candidate(candidate, output_dir, start_index + downloaded_count)
             if saved_path:
                 downloaded_count += 1
+            else:
+                skipped_count += 1
         except Exception as exc:
+            skipped_count += 1
             print(f"下载失败: {candidate.image_url} -> {exc}")
 
     source_counts = dict(Counter(candidate.source for candidate in collected_candidates))
@@ -143,9 +185,9 @@ def main():
         keyword=args.keyword,
         requested_limit=args.limit,
         collected_count=len(collected_candidates),
-        deduped_count=len(deduped_candidates),
+        deduped_count=len(unique_candidates),
         downloaded_count=downloaded_count,
-        skipped_count=len(deduped_candidates) - downloaded_count,
+        skipped_count=skipped_count,
         output_dir=output_dir,
         source_counts=source_counts,
     )

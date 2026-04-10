@@ -994,6 +994,14 @@ git -C "D:/0/7/scrape/bing-keyword-image-downloader" add image_downloader/storag
 git -C "D:/0/7/scrape/bing-keyword-image-downloader" commit -m "feat: 增加下载存储与历史索引"
 ```
 
+**进度补记（2026-04-10）**
+- 已在 `scripts/bing_image_downloader.py` 中补充 `get_next_image_index()`，连续运行时会从现有最大编号后续写，避免再次从 `001` 开始覆盖旧文件。
+- 已将主流程调整为遍历本轮全部唯一候选；当历史索引命中或单个候选下载失败时，会继续向后补位，直到下载满 `--limit` 或候选耗尽。
+- 已补充对应回归测试：
+  - `tests/test_bing_image_downloader.py` 中的 `test_cli_runs_from_repo_root`
+  - `tests/test_bing_image_downloader.py` 中的 `test_get_next_image_index_returns_next_available_number`
+  - `tests/test_bing_image_downloader.py` 中的 `test_download_new_images_skips_duplicates_and_continues_until_limit`
+
 ### Task 6: 接入报告输出并更新文档与评测
 
 **Files:**
