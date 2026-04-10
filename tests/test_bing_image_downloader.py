@@ -5,6 +5,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from image_downloader.models import ImageCandidate
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 from bing_image_downloader import (
@@ -38,6 +40,59 @@ class TestBingImageDownloader(unittest.TestCase):
             "https://img.example.com/c.jpg",
             "https://img.example.com/d.png",
         ])
+
+    def test_extract_image_urls_uses_bing_source_compatible_parser(self):
+        html = '''
+        <a class="iusc" m='{"murl":"https://img.example.com/a.jpg"}'></a>
+        <a class="iusc" m='{"murl":"https://img.example.com/b.png"}'></a>
+        <a class="iusc" m='{"murl":"https://img.example.com/a.jpg"}'></a>
+        '''
+
+        urls = extract_image_urls(html)
+
+        self.assertEqual(urls, [
+            "https://img.example.com/a.jpg",
+            "https://img.example.com/b.png",
+        ])
+
+    @mock.patch("bing_image_downloader.BingSource")
+    def test_collect_image_urls_uses_bing_source_and_returns_plain_urls(self, mock_bing_source):
+        mock_bing_source.return_value.collect.return_value = [
+            ImageCandidate(
+                source="bing",
+                keyword="cat",
+                image_url="https://img.example.com/1.jpg",
+                page_url=None,
+                thumbnail_url=None,
+                title=None,
+                width=None,
+                height=None,
+                content_type=None,
+                source_rank=1,
+                metadata={},
+            ),
+            ImageCandidate(
+                source="bing",
+                keyword="cat",
+                image_url="https://img.example.com/2.jpg",
+                page_url=None,
+                thumbnail_url=None,
+                title=None,
+                width=None,
+                height=None,
+                content_type=None,
+                source_rank=2,
+                metadata={},
+            ),
+        ]
+
+        urls = collect_image_urls("cat", pages=2, target_count=2)
+
+        self.assertEqual(urls, [
+            "https://img.example.com/1.jpg",
+            "https://img.example.com/2.jpg",
+        ])
+        mock_bing_source.return_value.collect.assert_called_once_with("cat", limit=2, pages=2)
 
     @mock.patch("bing_image_downloader.requests.get")
     def test_collect_image_urls_across_multiple_pages(self, mock_get):

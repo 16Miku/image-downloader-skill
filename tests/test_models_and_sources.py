@@ -1,7 +1,9 @@
 import unittest
+from unittest import mock
 
 from image_downloader.models import ImageCandidate
 from image_downloader.sources.base import BaseSource
+from image_downloader.sources.bing import BingSource
 
 
 class DummySource(BaseSource):
@@ -58,6 +60,47 @@ class TestModelsAndSources(unittest.TestCase):
         self.assertIsInstance(candidates[0], ImageCandidate)
         self.assertEqual(candidates[0].keyword, "cat")
         self.assertEqual(candidates[0].source, "dummy")
+
+    def test_bing_source_collect_returns_image_candidates(self):
+        response = mock.Mock()
+        response.raise_for_status.return_value = None
+        response.text = '''
+        <a class="iusc" m='{"murl":"https://img.example.com/1.jpg","purl":"https://example.com/1","turl":"https://img.example.com/1-thumb.jpg","t":"cat 1","w":800,"h":600}'></a>
+        <a class="iusc" m='{"murl":"https://img.example.com/2.png","purl":"https://example.com/2","turl":"https://img.example.com/2-thumb.png","t":"cat 2","w":640,"h":480}'></a>
+        '''
+
+        with mock.patch("image_downloader.sources.bing.requests.get", return_value=response):
+            results = BingSource().collect("cat", limit=5, pages=1)
+
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0].source, "bing")
+        self.assertEqual(results[0].keyword, "cat")
+        self.assertEqual(results[0].image_url, "https://img.example.com/1.jpg")
+        self.assertEqual(results[0].page_url, "https://example.com/1")
+        self.assertEqual(results[0].thumbnail_url, "https://img.example.com/1-thumb.jpg")
+        self.assertEqual(results[0].title, "cat 1")
+        self.assertEqual(results[0].width, 800)
+        self.assertEqual(results[0].height, 600)
+        self.assertEqual(results[0].content_type, None)
+        self.assertEqual(results[0].source_rank, 1)
+        self.assertEqual(results[0].metadata["bing_page"], 1)
+
+    def test_extract_image_urls_still_returns_plain_url_list(self):
+        from image_downloader.sources.bing import extract_image_urls
+
+        html = '''
+        <a class="iusc" m='{"murl":"https://img.example.com/a.jpg","purl":"https://example.com/a"}'></a>
+        <a class="iusc" m='{"murl":"https://img.example.com/b.png","purl":"https://example.com/b"}'></a>
+        <a class="iusc" m='{"murl":"https://img.example.com/a.jpg","purl":"https://example.com/a-dup"}'></a>
+        '''
+
+        self.assertEqual(
+            extract_image_urls(html),
+            [
+                "https://img.example.com/a.jpg",
+                "https://img.example.com/b.png",
+            ],
+        )
 
 
 if __name__ == "__main__":

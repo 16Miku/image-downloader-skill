@@ -1,45 +1,12 @@
 import argparse
-import html
-import json
 import mimetypes
 import os
-import re
 from pathlib import Path
-from urllib.parse import quote, urlparse
+from urllib.parse import urlparse
 
 import requests
 
-
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
-    )
-}
-
-
-def extract_image_urls(html_text):
-    patterns = [
-        r'm=\'(\{.*?\})\'',
-        r'm="(\{.*?\})"',
-    ]
-
-    seen = set()
-    urls = []
-
-    for pattern in patterns:
-        matches = re.findall(pattern, html_text)
-        for raw in matches:
-            try:
-                data = json.loads(html.unescape(raw))
-            except json.JSONDecodeError:
-                continue
-            url = data.get("murl")
-            if url and url not in seen:
-                seen.add(url)
-                urls.append(url)
-    return urls
+from image_downloader.sources.bing import BingSource, HEADERS, extract_image_urls
 
 
 def guess_extension(url, content_type=None):
@@ -79,26 +46,10 @@ def download_images(urls, output_dir, limit=10, start_index=1):
 
 
 def collect_image_urls(keyword, pages=1, target_count=None):
-    all_urls = []
-    seen = set()
-
-    for page in range(pages):
-        if target_count is not None and len(all_urls) >= target_count:
-            break
-
-        first = page * 35 + 1
-        url = f"https://www.bing.com/images/search?q={quote(keyword)}&form=HDRSC3&first={first}"
-        response = requests.get(url, headers=HEADERS, timeout=15)
-        response.raise_for_status()
-
-        for image_url in extract_image_urls(response.text):
-            if image_url not in seen:
-                seen.add(image_url)
-                all_urls.append(image_url)
-                if target_count is not None and len(all_urls) >= target_count:
-                    break
-
-    return all_urls
+    source = BingSource()
+    limit = target_count if target_count is not None else pages * 35
+    candidates = source.collect(keyword, limit=limit, pages=pages)
+    return [candidate.image_url for candidate in candidates]
 
 
 def search_bing_images(keyword):
