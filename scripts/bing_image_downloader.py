@@ -1,45 +1,22 @@
 import argparse
-import html
-import json
 import mimetypes
 import os
-import re
+from collections import Counter
 from pathlib import Path
-from urllib.parse import quote, urlparse
+from urllib.parse import urlparse
 
 import requests
 
+from image_downloader.reporting import build_run_report
+from image_downloader.storage import record_download, should_skip_candidate
+from image_downloader.sources.bing import BingSource, HEADERS, extract_image_urls
+from image_downloader.sources.demo import DemoSource
 
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
-    )
+
+SOURCE_REGISTRY = {
+    "bing": BingSource,
+    "demo": DemoSource,
 }
-
-
-def extract_image_urls(html_text):
-    patterns = [
-        r'm=\'(\{.*?\})\'',
-        r'm="(\{.*?\})"',
-    ]
-
-    seen = set()
-    urls = []
-
-    for pattern in patterns:
-        matches = re.findall(pattern, html_text)
-        for raw in matches:
-            try:
-                data = json.loads(html.unescape(raw))
-            except json.JSONDecodeError:
-                continue
-            url = data.get("murl")
-            if url and url not in seen:
-                seen.add(url)
-                urls.append(url)
-    return urls
 
 
 def guess_extension(url, content_type=None):
@@ -78,27 +55,49 @@ def download_images(urls, output_dir, limit=10, start_index=1):
     return saved_files
 
 
-def collect_image_urls(keyword, pages=1, target_count=None):
-    all_urls = []
-    seen = set()
+def build_sources(source_names):
+    return [SOURCE_REGISTRY[name]() for name in source_names]
 
-    for page in range(pages):
-        if target_count is not None and len(all_urls) >= target_count:
+
+def collect_candidates_from_sources(keyword, limit, pages, sources):
+    candidates = []
+    for source in sources:
+        candidates.extend(source.collect(keyword, limit=limit, pages=pages))
+    return candidates
+
+
+def dedupe_candidates(candidates, limit):
+    seen_urls = set()
+    deduped = []
+
+    for candidate in candidates:
+        if candidate.image_url in seen_urls:
+            continue
+        seen_urls.add(candidate.image_url)
+        deduped.append(candidate)
+        if len(deduped) >= limit:
             break
 
-        first = page * 35 + 1
-        url = f"https://www.bing.com/images/search?q={quote(keyword)}&form=HDRSC3&first={first}"
-        response = requests.get(url, headers=HEADERS, timeout=15)
-        response.raise_for_status()
+    return deduped
 
-        for image_url in extract_image_urls(response.text):
-            if image_url not in seen:
-                seen.add(image_url)
-                all_urls.append(image_url)
-                if target_count is not None and len(all_urls) >= target_count:
-                    break
 
-    return all_urls
+def download_candidate(candidate, output_dir, index):
+    if should_skip_candidate(candidate, output_dir):
+        return None
+
+    saved_files = download_images([candidate.image_url], output_dir, limit=1, start_index=index)
+    if not saved_files:
+        return None
+
+    record_download(candidate, saved_files[0], output_dir)
+    return saved_files[0]
+
+
+def collect_image_urls(keyword, pages=1, target_count=None):
+    source = BingSource()
+    limit = target_count if target_count is not None else pages * 35
+    candidates = source.collect(keyword, limit=limit, pages=pages)
+    return [candidate.image_url for candidate in candidates]
 
 
 def search_bing_images(keyword):
@@ -113,26 +112,41 @@ def main():
     args = parser.parse_args()
 
     output_dir = os.path.join("downloads", args.keyword)
-    image_urls = collect_image_urls(args.keyword, pages=args.pages, target_count=args.limit * 3)
+    sources = build_sources(["bing", "demo"])
+    collected_candidates = collect_candidates_from_sources(
+        keyword=args.keyword,
+        limit=args.limit,
+        pages=args.pages,
+        sources=sources,
+    )
 
-    if not image_urls:
+    if not collected_candidates:
         print("没有提取到图片链接，请更换关键词后重试。")
         return
 
-    success = 0
-    for url in image_urls:
-        if success >= args.limit:
-            break
-        try:
-            saved = download_images([url], output_dir, limit=1, start_index=success + 1)
-            if saved:
-                success += 1
-                print(f"下载成功: {saved[0]}")
-        except Exception as exc:
-            print(f"下载失败: {url} -> {exc}")
+    deduped_candidates = dedupe_candidates(collected_candidates, limit=args.limit)
+    downloaded_count = 0
 
-    print(f"共收集到 {len(image_urls)} 个候选链接。")
-    print(f"完成，共成功下载 {success} 张图片。")
+    for index, candidate in enumerate(deduped_candidates, start=1):
+        try:
+            saved_path = download_candidate(candidate, output_dir, index)
+            if saved_path:
+                downloaded_count += 1
+        except Exception as exc:
+            print(f"下载失败: {candidate.image_url} -> {exc}")
+
+    source_counts = dict(Counter(candidate.source for candidate in collected_candidates))
+    report = build_run_report(
+        keyword=args.keyword,
+        requested_limit=args.limit,
+        collected_count=len(collected_candidates),
+        deduped_count=len(deduped_candidates),
+        downloaded_count=downloaded_count,
+        skipped_count=len(deduped_candidates) - downloaded_count,
+        output_dir=output_dir,
+        source_counts=source_counts,
+    )
+    print(report)
 
 
 if __name__ == "__main__":
