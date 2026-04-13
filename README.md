@@ -1,11 +1,11 @@
-# bing-keyword-image-downloader
+# image-downloader
 
 一个基于 Python 的多来源关键词图片下载项目，同时也整理成了一个可供其他 agent 复用的 Claude skill。
 
 ## 项目链接
 
 - GitHub 仓库：https://github.com/16Miku/image-downloader-skill
-- ClawHub 页面：https://clawhub.ai/16miku/bing-keyword-image-downloader
+- ClawHub 页面：https://clawhub.ai/16miku/image-downloader
 
 它当前的核心能力是：
 - 按关键词从多个来源收集图片候选（当前支持 Bing 和 DemoSource）
@@ -27,7 +27,7 @@
 ## 目录结构
 
 ```text
-bing-keyword-image-downloader/
+image-downloader/
 ├── .gitignore
 ├── README.md
 ├── SKILL.md
@@ -60,10 +60,23 @@ bing-keyword-image-downloader/
 ## 环境要求
 
 - Python 3
-- [uv](https://github.com/astral-sh/uv)
 - `requests`
+- [uv](https://github.com/astral-sh/uv)（可选）
 
 本项目默认使用 `uv` 运行，不要求你提前全局安装依赖。
+
+如果当前环境没有 `uv`（例如服务器、容器、OpenClaw Agent 等场景），可以直接使用 `python3` + `requests` 运行：
+
+```bash
+python3 -c "import requests; print(requests.__version__)"  # 确认 requests 已安装
+python3 "scripts/bing_image_downloader.py" "cat" --limit 10 --pages 3
+```
+
+如果 `requests` 未安装：
+
+```bash
+python3 -m pip install requests
+```
 
 ## 快速开始
 
@@ -182,10 +195,131 @@ uv run --with requests python "scripts/bing_image_downloader.py" "cat" --limit 1
 
 ## 注意事项
 
-- 本项目是“按关键词下载公开图片”的现成流程实现，不是通用全网图片下载器
+- 本项目是”按关键词下载公开图片”的现成流程实现，不是通用全网图片下载器
 - 当目标数量较大时，是否能下载满会受到第三方源站可访问性的影响
 - 如果希望提高成功数量，优先增加 `--pages` 或扩大候选池
 - `downloads/` 是运行产物，默认不提交到 Git 仓库
+
+## OpenClaw Agent 部署与定时任务
+
+以下内容来自将本 skill 安装到 OpenClaw Agent 后的实际验证，适用于在服务器环境中部署和自动化运行。
+
+### 部署环境说明
+
+在 OpenClaw Agent 或其他服务器环境中，通常没有 `uv`，需要直接使用 `python3`：
+
+```bash
+# 确认环境
+python3 --version
+python3 -c “import requests; print(requests.__version__)”
+
+# 直接运行
+python3 “/path/to/skills/image-downloader/scripts/bing_image_downloader.py” “初音未来” --limit 10 --pages 3
+```
+
+### 定时任务脚本示例
+
+以下是一个经过验证的定时下载 + 发送到飞书的 shell 脚本模板：
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+export PATH=”/usr/local/bin:/usr/bin:/bin:/root/.local/bin:$PATH”
+
+KEYWORD=”初音未来”
+LIMIT=10
+PAGES=3
+TARGET=”<飞书接收人 open_id>”
+BASE_DIR=”/path/to/skills/image-downloader”
+SCRIPT_PATH=”$BASE_DIR/scripts/bing_image_downloader.py”
+DOWNLOAD_DIR=”$BASE_DIR/downloads/$KEYWORD”
+LOG_DIR=”/path/to/logs”
+LOG_FILE=”$LOG_DIR/image_download_daily.log”
+
+mkdir -p “$LOG_DIR”
+exec >> “$LOG_FILE” 2>&1
+
+echo “==== $(date '+%F %T %Z') start ====”
+
+cd “$BASE_DIR”
+
+python3 --version
+python3 -c “import requests; print('requests', requests.__version__)”
+
+python3 “$SCRIPT_PATH” “$KEYWORD” --limit “$LIMIT” --pages “$PAGES” || true
+
+if [ ! -d “$DOWNLOAD_DIR” ]; then
+  echo “download dir not found: $DOWNLOAD_DIR”
+  exit 1
+fi
+
+mapfile -t images < <(find “$DOWNLOAD_DIR” -maxdepth 1 -type f \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \) | sort | tail -n “$LIMIT”)
+
+count=${#images[@]}
+echo “found images: $count”
+
+if [ “$count” -eq 0 ]; then
+  echo “no images found”
+  exit 1
+fi
+
+for img in “${images[@]}”; do
+  echo “sending: $img”
+  openclaw message send \
+    --channel feishu \
+    --target “$TARGET” \
+    --media “$img” \
+    --json
+  sleep 1
+done
+
+echo “==== $(date '+%F %T %Z') done ====”
+```
+
+### crontab 配置
+
+每天上午 9 点执行（以 Asia/Shanghai 时区为例）：
+
+```bash
+0 9 * * * TZ=Asia/Shanghai /path/to/scripts/image_download_daily.sh
+```
+
+查看当前定时任务：
+
+```bash
+crontab -l
+```
+
+添加定时任务：
+
+```bash
+crontab -l | { cat; echo '0 9 * * * TZ=Asia/Shanghai /path/to/scripts/image_download_daily.sh'; } | crontab -
+```
+
+### 已验证的关键经验
+
+1. **demo 来源报错可以忽略**：日志中出现 `demo.example.com NameResolutionError` 是正常现象，`demo` 是演示来源，只要 Bing 来源正常即可。
+
+2. **”实际成功下载 0”不等于失败**：当历史去重生效时，本次运行不会新增图片，但目录中仍然保留之前下载的图片。
+
+3. **发送到飞书的正确命令**：必须使用 `openclaw message send --channel feishu --target ... --media ...`，而不是 `sendAttachment` 等其他写法。
+
+4. **cron 环境需要显式设置 PATH**：避免因环境变量缺失导致 `python3` 或 `openclaw` 找不到。
+
+5. **发送失败优先检查命令格式**：不要先入为主认为是权限或认证问题，本次实践中发送失败的根因是 CLI 子命令写错。
+
+### 日志排查
+
+```bash
+tail -n 200 /path/to/logs/image_download_daily.log
+```
+
+重点关注：
+- `Python 3.x.x` 和 `requests x.x.x`：环境正常
+- `保存目录: downloads/关键词`：下载阶段正常
+- `found images: N`：找到可发送图片
+- `”messageId”: “om_xxx”`：发送到飞书成功
 
 ## License
 
